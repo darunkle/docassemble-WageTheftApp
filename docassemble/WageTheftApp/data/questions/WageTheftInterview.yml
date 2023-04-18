@@ -1,0 +1,64 @@
+---
+metadata:
+  title: |
+    MA Wage Theft Advice
+  short title: |
+    Wafe Theft
+  description: |
+    A wage theft advice interview for Massachussetts
+  authors:
+    - name: Dave Runkle
+    - organization: Suffolk Law
+  revision_date: 2023-04-18
+---
+objects:
+  - reporter: Individual
+  - workPlaceAddress: Address
+
+---
+id: interview order
+mandatory: True
+code: |
+  if report_type == 'Someone else':
+    reporter.name.first
+  else:
+    MA_resident
+    MA_workplace
+    MA_employer
+    
+---
+id: report type
+question: |
+  Who is this complaint for?
+field: report_type
+buttons:
+  - Myself
+  - Someone else
+---
+id: resident
+question: |
+  Are you a resident of Massachussetts?
+yesnomaybe: MA_resident
+---
+id: work location
+question: |
+  Do you work in Massachussetts?
+yesnomaybe: MA_workplace
+---
+id: MA employer
+question: |
+  Is your employer based in Massachussetts?
+yesnomaybe: MA_employer
+---
+id: reporter name
+question: |
+  Reporter's name
+fields:
+  - First: reporter.name.first
+  - Middle: reporter.name.middle
+    required: False
+  - Last: reporter.name.last
+  - Suffix: reporter.name.suffix
+    code: |
+      name_suffix()
+    required: False
