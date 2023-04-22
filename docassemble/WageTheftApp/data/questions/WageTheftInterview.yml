@@ -9,56 +9,166 @@ metadata:
   authors:
     - name: Dave Runkle
     - organization: Suffolk Law
-  revision_date: 2023-04-18
+  revision_date: 2023-04-21
 ---
 objects:
   - reporter: Individual
-  - workPlaceAddress: Address
-
+  - claim: Event
 ---
 id: interview order
 mandatory: True
 code: |
-  if report_type == 'Someone else':
+  anonReporter
+  if date_difference(starting=claim.date_of_claim, ending=today()).years >= 3:
+    show_SoL_bounce
+  if not (lives_In_MA or works_In_MA or company_In_MA):
+    show_jurisdiction_bounce
+  if not anonReporter:
     reporter.name.first
-  else:
-    MA_resident
-    MA_workplace
-    MA_employer
-    
+    reporter.address.city
+    reporter.phone
+  employer_name
+  if claim.is_private_action:
+    if has_council == False:
+      show_referral_links
+  show_form_helper
 ---
-id: report type
+id: representation
+question: |
+  Do you have a lawyer?
+yesno: has_council
+---
+id: reporter type
 question: |
   Who is this complaint for?
-field: report_type
+field: reporter.is_1stParty
 buttons:
-  - Myself
-  - Someone else
+  - "Myself": True
+  - "Someone else": False
+---
+id: claim type
+question: |
+  Would you like to pursue this claim yourself?
+yesno: claim.is_private_action
+---
+id: date of claim
+question: |
+  When did the wage theft occur?
+fields:
+  - no label: claim.date_of_claim
+    datatype: date
+---
+id: anonymous?
+question: |
+  Would you like to remain anonymous?
+field: anonReporter
+buttons:
+  - "No": False
+  - "Yes": True
 ---
 id: resident
 question: |
-  Are you a resident of Massachussetts?
-yesnomaybe: MA_resident
+  Do you live in Massachussetts?
+yesnomaybe: lives_In_MA
 ---
 id: work location
 question: |
   Do you work in Massachussetts?
-yesnomaybe: MA_workplace
+yesnomaybe: works_In_MA
 ---
-id: MA employer
+id: company location
 question: |
-  Is your employer based in Massachussetts?
-yesnomaybe: MA_employer
+  Is your employer located in Massachussetts?
+yesnomaybe: company_In_MA
 ---
 id: reporter name
 question: |
-  Reporter's name
+  What is your name?
 fields:
   - First: reporter.name.first
   - Middle: reporter.name.middle
     required: False
   - Last: reporter.name.last
-  - Suffix: reporter.name.suffix
-    code: |
-      name_suffix()
+---
+id: reporter address
+question: |
+  What is your address?
+fields:
+  - Address: reporter.address.address
+  - Unit: reporter.address.unit
     required: False
+  - City: reporter.address.city
+  - State: reporter.address.state
+    required: False
+  - Zip Code: reporter.address.zip
+    required: False
+---
+id: reporter contact
+question: |
+  How would you like to be contacted?
+fields:
+  - Phone: reporter.phone
+    required: False
+  - E-mail: reporter.email
+    datatype: email
+    required: False
+---
+id: workplace info
+question: |
+  Workplace Information:
+fields:
+  - Business Name: employer_name
+  - Business type: employer_type
+    choices:
+        - 'Advertising'
+        - 'Aerospace'
+        - 'Agriculture'
+        - 'Automotive'
+        - 'Biotech'
+        - 'Construction'
+        - 'Consulting'
+        - 'Education'
+        - 'Energy'
+        - 'Entertainment'
+        - 'Fashion'
+        - 'Finance'
+        - 'Food and Beverage'
+        - 'Government'
+        - 'Healthcare'
+        - 'Hospitality'
+        - 'Insurance'
+        - 'Legal'
+        - 'Manufacturing'
+        - 'Media'
+        - 'Non-profit'
+        - 'Pharmaceuticals'
+        - 'Real estate'
+        - 'Retail'
+        - 'Sports'
+        - 'Technology'
+        - 'Telecommunications'
+        - 'Tourism'
+        - 'Transportation'
+  - Workplace Address: claim.address.address
+  - City: claim.address.city
+  - State: claim.address.state
+  - Zip Code: claim.address.zip
+---
+id: form helper
+question: Here is your Form Helper!
+subquestion: |
+  You were robbed by ${employer_name}!
+event: show_form_helper
+---
+id: referral
+question: Find an attorney here.
+event: show_referral_links
+---
+id: SoL Bounce
+question: Sorry, your claim is too old!
+event: show_SoL_bounce
+---
+id: Juris Bounce
+question: Sorry, this tool is only for Massachussetts wage theft claims!
+event: show_jurisdiction_bounce
+
