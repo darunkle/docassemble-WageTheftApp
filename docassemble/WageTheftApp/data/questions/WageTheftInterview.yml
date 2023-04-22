@@ -1,11 +1,11 @@
 ---
 metadata:
   title: |
-    MA Wage Theft Advice
+    MA Wage Theft Help
   short title: |
     Wafe Theft
   description: |
-    A wage theft advice interview for Massachussetts
+    A wage theft interview for Massachussetts
   authors:
     - name: Dave Runkle
     - organization: Suffolk Law
@@ -21,7 +21,7 @@ code: |
   anonReporter
   if date_difference(starting=claim.date_of_claim, ending=today()).years >= 3:
     show_SoL_bounce
-  if not (lives_In_MA or works_In_MA or company_In_MA):
+  if not (lives_In_MA or works_In_MA or employer_In_MA):
     show_jurisdiction_bounce
   if not anonReporter:
     reporter.name.first
@@ -33,10 +33,41 @@ code: |
       show_referral_links
   show_form_helper
 ---
+id: violation time period
+question: |
+  When did the wage theft happen?
+fields:
+  - Start date: violation_startDate
+    datatype: date
+  - "It's still happening.": is_ongoing
+    datatype: yesno
+  - End date: violation_endDate
+    datatype: date
+    show if:
+      variable: is_ongoing
+      is: False
+---
 id: representation
 question: |
   Do you have a lawyer?
 yesno: has_council
+---
+id: claim reasons
+question: |
+  What do you need help with?
+subquestion: Pick all that are true.
+fields:
+  - "My job...": claim.reasons
+    datatype: checkboxes
+    choices:
+      - "...pays less than minimum wage": minWage
+      - "...hasn't paid me for my usual work": nonPay
+      - "...hasn't paid me for overtime work": overTime
+      - "...hasn't paid me for vacation or holiday time": holidayPay
+      - "...doesn't allow me to eat meals": mealTime
+      - "...takes some or all of my tips": tips
+      - "...hasn't paid me for a sale I made": commission
+      - "...takes money from my paycheck": deductions
 ---
 id: reporter type
 question: |
@@ -51,9 +82,25 @@ question: |
   Would you like to pursue this claim yourself?
 yesno: claim.is_private_action
 ---
+id: reporter DoB
+question: |
+  What is your date of birth?
+fields:
+  - Birthdate: reporter.DoB
+    datatype: date
+    required: False
+---
+id: reporter military?
+question: |
+  Are you a U.S. Military Service Member or Veteran? or filing on behalf of one?
+field: reporter.is_military
+buttons:
+  - "No": False
+  - "Yes": True
+---
 id: date of claim
 question: |
-  When did the wage theft occur?
+  When did the most recent wage theft occur?
 fields:
   - no label: claim.date_of_claim
     datatype: date
@@ -79,7 +126,7 @@ yesnomaybe: works_In_MA
 id: company location
 question: |
   Is your employer located in Massachussetts?
-yesnomaybe: company_In_MA
+yesnomaybe: employer_In_MA
 ---
 id: reporter name
 question: |
@@ -89,6 +136,55 @@ fields:
   - Middle: reporter.name.middle
     required: False
   - Last: reporter.name.last
+---
+id: employment status
+question: |
+  Which best describes your work status:
+fields:
+  - no label: reporter.employment
+    choices:
+    - "I used to work for ${employer_name}, but don't now.": ended
+    - "I still work for ${employer_name}.": current
+    - "I never worked for ${employer_name}.": never
+---
+id: employment details
+question: |
+  Employment dates
+fields:
+  - Start date: reporter.start_Date
+    datatype: date
+  - End date: reporter.end_Date
+    required: False
+    datatype: date
+    show if: 
+      code: |
+        reporter.employment == "ended"
+  - Reason employment ended: reporter.termination_Reason
+    datatype: radio
+    required: False
+    choices:
+      - "I quit or resigned.": quit
+      - "I was fired or laid off.": canned
+    show if: 
+      code: |
+        reporter.employment == "ended"    
+---
+id: claim detail
+question: |
+  Wage Theft Details
+fields:
+  - Type of Work: work_type
+  - Job Title: job_title
+  - Pay Rate: pay_rate
+  - Pay Type: pay_type
+    choices:
+      - "per hour": hourly
+      - "per year": salary
+    default: "per hour"
+  - Total Amount Owed: claim.amount_owed
+    required: False
+    datatype: currency
+    min: 0
 ---
 id: reporter address
 question: |
@@ -112,13 +208,15 @@ fields:
   - E-mail: reporter.email
     datatype: email
     required: False
+  - Preferred Language: reporter.language
+    required: False
 ---
 id: workplace info
 question: |
-  Workplace Information:
+  Please provide as much information about your workplace as possible:
 fields:
-  - Business Name: employer_name
-  - Business type: employer_type
+  - Company Name: employer_name
+  - Company type: employer_type
     choices:
         - 'Advertising'
         - 'Aerospace'
@@ -153,6 +251,14 @@ fields:
   - City: claim.address.city
   - State: claim.address.state
   - Zip Code: claim.address.zip
+  - Company Phone: employer_phone
+    required: False
+  - Number of Employees: employer_size
+    required: False
+  - Supervisor Name: supervisor_name
+    required: False
+  - Supervisor Contact: supervisor_contact
+    required: False
 ---
 id: form helper
 question: Here is your Form Helper!
