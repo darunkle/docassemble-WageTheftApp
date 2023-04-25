@@ -9,7 +9,7 @@ metadata:
   authors:
     - name: Dave Runkle
     - organization: Suffolk Law
-  revision_date: 2023-04-21
+  revision_date: 2023-04-25
 ---
 objects:
   - reporter: Individual
@@ -28,6 +28,8 @@ code: |
     reporter.address.city
     reporter.phone
   employer_name
+  reporter.employment
+  claim.reasons
   if claim.is_private_action:
     if has_council == False:
       show_referral_links
@@ -55,9 +57,8 @@ yesno: has_council
 id: claim reasons
 question: |
   What do you need help with?
-subquestion: Pick all that are true.
 fields:
-  - "My job...": claim.reasons
+  - "${employer_name}:": claim.reasons
     datatype: checkboxes
     choices:
       - "...pays less than minimum wage": minWage
@@ -180,8 +181,7 @@ fields:
     choices:
       - "per hour": hourly
       - "per year": salary
-    default: "per hour"
-  - Total Amount Owed: claim.amount_owed
+  - Total Amount Owed: claim.total
     required: False
     datatype: currency
     min: 0
@@ -263,7 +263,15 @@ fields:
 id: form helper
 question: Here is your Form Helper!
 subquestion: |
-  You were robbed by ${employer_name}!
+  <p>${employer_name} owes you $${claim.total*3}!<p>
+attachment:
+  - name: MA Wage Theft Claim Summary
+    filename: wage_theft_summary
+    description: |
+      This is a summary of your wage theft interview.
+    content: |
+      <p>You were robbed by ${employer_name}!<p>
+      <p>For ${claim.total}<p>
 event: show_form_helper
 ---
 id: referral
