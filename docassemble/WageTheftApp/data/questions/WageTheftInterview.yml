@@ -14,10 +14,28 @@ metadata:
 objects:
   - reporter: Individual
   - claim: Event
+  - claim.reasons: DAset
+  - pronouns: DAObject
 ---
 id: interview order
 mandatory: True
 code: |
+  if reporter.is_3rdParty:
+    pronouns.personal = "they"
+    pronouns.reflexive = "them"
+    pronouns.toBe = "were"
+    pronouns.possessive = "their"
+    pronouns.address = "they"
+    pronouns.Thrdaddress = "them"
+    pronouns.Thrdposs = "their"
+  else:
+    pronouns.personal = "I"
+    pronouns.reflexive = "me"
+    pronouns.toBe = "was"
+    pronouns.possessive = "my"
+    pronouns.address = "you"
+    pronouns.Thrdaddress = "you"
+    pronouns.Thrdposs = "your"
   anonReporter
   if date_difference(starting=claim.date_of_claim, ending=today()).years >= 3:
     show_SoL_bounce
@@ -28,10 +46,16 @@ code: |
     reporter.address.city
     reporter.phone
   employer_name
+  reporter.is_military
   reporter.employment
+  if not reporter.employment == 'never':
+    reporter.start_Date
+  else:
+    claim.is_private_action = False
   claim.reasons
+  violation_startDate
   if claim.is_private_action:
-    if has_council == False:
+    if gottenHelp['has_council'] == False:
       show_referral_links
   show_form_helper
 ---
@@ -49,43 +73,38 @@ fields:
       variable: is_ongoing
       is: False
 ---
-id: representation
-question: |
-  Do you have a lawyer?
-yesno: has_council
----
 id: claim reasons
 question: |
-  What do you need help with?
+  What do ${pronouns.address} need help with?
 fields:
   - "${employer_name}:": claim.reasons
     datatype: checkboxes
     choices:
       - "...pays less than minimum wage": minWage
-      - "...hasn't paid me for my usual work": nonPay
-      - "...hasn't paid me for overtime work": overTime
-      - "...hasn't paid me for vacation or holiday time": holidayPay
-      - "...doesn't allow me to eat meals": mealTime
-      - "...takes some or all of my tips": tips
-      - "...hasn't paid me for a sale I made": commission
-      - "...takes money from my paycheck": deductions
+      - "...hasn't paid ${pronouns.reflexive} for ${pronouns.possessive} work": nonPay
+      - "...hasn't paid ${pronouns.reflexive} for overtime work": overTime
+      - "...hasn't paid ${pronouns.reflexive} for vacation or holiday time": holidayPay
+      - "...doesn't allow ${pronouns.reflexive} to eat meals": mealTime
+      - "...takes some or all of ${pronouns.possessive} tips": tips
+      - "...hasn't paid ${pronouns.reflexive} for a sale ${pronouns.personal} made": commission
+      - "...takes money from ${pronouns.possessive} paycheck": deductions
 ---
 id: reporter type
 question: |
   Who is this complaint for?
-field: reporter.is_1stParty
+field: reporter.is_3rdParty
 buttons:
-  - "Myself": True
-  - "Someone else": False
+  - "Myself": False
+  - "Someone else": True
 ---
 id: claim type
 question: |
-  Would you like to pursue this claim yourself?
+  Would ${pronouns.address} like to pursue this claim personally?
 yesno: claim.is_private_action
 ---
 id: reporter DoB
 question: |
-  What is your date of birth?
+  What is ${pronouns.Thrdposs} date of birth?
 fields:
   - Birthdate: reporter.DoB
     datatype: date
@@ -93,7 +112,7 @@ fields:
 ---
 id: reporter military?
 question: |
-  Are you a U.S. Military Service Member or Veteran? or filing on behalf of one?
+  Are ${pronouns.address} a U.S. Military Service Member or Veteran?
 field: reporter.is_military
 buttons:
   - "No": False
@@ -108,7 +127,7 @@ fields:
 ---
 id: anonymous?
 question: |
-  Would you like to remain anonymous?
+  Would ${pronouns.address} like to remain anonymous?
 field: anonReporter
 buttons:
   - "No": False
@@ -116,22 +135,26 @@ buttons:
 ---
 id: resident
 question: |
-  Do you live in Massachussetts?
+  Do ${pronouns.address} live in Massachussetts?
 yesnomaybe: lives_In_MA
 ---
 id: work location
 question: |
-  Do you work in Massachussetts?
+  Do ${pronouns.address} work in Massachussetts?
 yesnomaybe: works_In_MA
 ---
 id: company location
 question: |
-  Is your employer located in Massachussetts?
+  Does ${pronouns.Thrdposs} employer do work in Massachussetts?
 yesnomaybe: employer_In_MA
 ---
 id: reporter name
 question: |
-  What is your name?
+    % if reporter.is_3rdParty:
+      What is the employee's name?
+    % else:
+      What is your name?
+    % endif
 fields:
   - First: reporter.name.first
   - Middle: reporter.name.middle
@@ -140,13 +163,27 @@ fields:
 ---
 id: employment status
 question: |
-  Which best describes your work status:
+  % if reporter.is_3rdParty:
+  Which best describes the employees's work:
+  % else:
+  Which best describes your work:
+  % endif
 fields:
   - no label: reporter.employment
     choices:
-    - "I used to work for ${employer_name}, but don't now.": ended
-    - "I still work for ${employer_name}.": current
-    - "I never worked for ${employer_name}.": never
+      - "They used to work for ${employer_name}, but stopped.": ended
+      - "They still work for ${employer_name}.": current
+    show if:
+      code: |
+          reporter.is_3rdParty
+  - no label: reporter.employment
+    choices:
+      - "I used to work for ${employer_name}, but stopped.": ended
+      - "I still work for ${employer_name}.": current
+      - "I've never worked for ${employer_name}.": never
+    show if:
+      code: |
+          not reporter.is_3rdParty
 ---
 id: employment details
 question: |
@@ -155,17 +192,15 @@ fields:
   - Start date: reporter.start_Date
     datatype: date
   - End date: reporter.end_Date
-    required: False
     datatype: date
     show if: 
       code: |
         reporter.employment == "ended"
   - Reason employment ended: reporter.termination_Reason
     datatype: radio
-    required: False
     choices:
-      - "I quit or resigned.": quit
-      - "I was fired or laid off.": canned
+      - "${pronouns.personal} quit or resigned.": quit
+      - "${pronouns.personal} ${pronouns.toBe} fired or laid off.": canned
     show if: 
       code: |
         reporter.employment == "ended"    
@@ -179,16 +214,35 @@ fields:
   - Pay Rate: pay_rate
   - Pay Type: pay_type
     choices:
-      - "per hour": hourly
-      - "per year": salary
+      - "hourly": "/ Hour"
+      - "weekly": "/ Week"
+      - "monthly": "/ Month"
+      - "yearly": "/ Year"
+      - "one time payment": "One Time Payment"
+      - "per piece": "Piece Rate"
   - Total Amount Owed: claim.total
     required: False
     datatype: currency
     min: 0
 ---
+id: gotten help?
+question: |
+  Has someone helped ${pronouns.Thrdaddress} with this already?
+fields:
+    - : gottenHelp
+      datatype: checkboxes
+      choices:
+        - "${pronouns.personal} hired a lawyer.": has_council
+        - "${pronouns.personal} got help from a group like a community organization, a union, or the government.": group_help
+        - "Someone else helped ${pronouns.reflexive}.": other
+        - "No one else has helped ${pronouns.reflexive} with this.": none
+    - "Please provide the names of the people or groups who have helped ${pronouns.address}.": other_helpers
+      show if: gottenHelp['other']
+ 
+---
 id: reporter address
 question: |
-  What is your address?
+  What is ${pronouns.Thrdposs} address?
 fields:
   - Address: reporter.address.address
   - Unit: reporter.address.unit
@@ -201,7 +255,7 @@ fields:
 ---
 id: reporter contact
 question: |
-  How would you like to be contacted?
+  How would ${pronouns.address} like to be contacted?
 fields:
   - Phone: reporter.phone
     required: False
@@ -213,7 +267,7 @@ fields:
 ---
 id: workplace info
 question: |
-  Please provide as much information about your workplace as possible:
+  Please provide as much information about ${pronouns.Thrdposs} workplace as possible:
 fields:
   - Company Name: employer_name
   - Company type: employer_type
@@ -261,9 +315,205 @@ fields:
     required: False
 ---
 id: form helper
-question: Here is your Form Helper!
+question: Here is ${pronouns.Thrdposs} Form Helper!
 subquestion: |
-  <p>${employer_name} owes you $${claim.total*3}!<p>
+  Based on your answers, here is how to complete Massachusetts's workplace complaint form:
+  
+  [BORDER]
+  ### About Your Request
+  Pick "Non-Payment of Wage"
+  
+  [BORDER]
+  ### Reason for Filing Complaint
+  % if claim.reasons['minWage']:
+  Mark the "Minimum wage" box.
+  % endif
+  
+  % if claim.reasons['nonPay']:
+  Mark the "Non-payment of wages" box. 
+  % endif
+  
+  % if claim.reasons['overTime']:
+  Mark the "Overtime pay" box. 
+  % endif
+  
+  % if claim.reasons['holidayPay']:
+  Mark the "Sunday/holiday pay" box. 
+  % endif
+  
+  % if claim.reasons['mealTime']:
+  Mark the "Meal period" box. 
+  % endif
+  
+  % if claim.reasons['tips']:
+  Mark the "Tips" box. 
+  % endif
+  
+  % if claim.reasons['commission']:
+  Mark the "Unpaid commissions" box. 
+  % endif
+  
+  % if claim.reasons['deductions']:
+  Mark the "Deductions" box. 
+  % endif
+  
+  % if claim.is_private_action:
+  Mark the "I am requesting permission to sue privately **("private right of action")**" box. 
+  % endif
+  
+  [BORDER]
+  ### Complaint Against
+  Type "${employer_name}" into the "Company or Employer Name" box.
+  
+  Pick "${employer_type}" from the "Company or Employer Type" box.
+  
+  Type "${claim.address.address}" into the "Company or Employer Street Address" box.
+  
+  Type "${claim.address.city}" into the "City" box.
+  
+  Pick "${claim.address.state}" from the "State" box.
+  
+  Type "${claim.address.zip}" into the "Zip Code" box.
+  
+  % if not value('employer_phone') == '':
+  Type "${employer_phone}" into the "Company Phone" box.
+  % endif
+  
+  % if not value('employer_size') == '':
+  Type "${employer_size}" into the "Number of Employees" box. 
+  % endif
+  
+  % if not value('supervisor_name') == '':
+  Type "${supervisor_name}" into the "Owner and/or Supervisor Name and Contact Information" box. 
+  % endif
+  
+  % if not value('supervisor_contact') == '':
+  Type "${supervisor_contact}" into the "Owner and/or Supervisor Name and Contact Information" box. 
+  % endif
+  
+  [BORDER]
+  ### Employment Dates
+  
+  % if reporter.employment == 'never':
+  Leave this section empty. 
+  % endif
+  
+  % if defined('reporter.start_Date'):
+  Type "${reporter.start_Date}" into the "To" box. 
+  % endif
+  
+  % if defined('reporter.end_Date'):
+  Type "${reporter.end_Date}" into the "From" box. 
+  % endif
+  
+  % if reporter.employment == 'current':
+  Mark the "Present" box. 
+  % endif  
+  
+  [BORDER]
+  ### Time Period of Violation
+  
+  Type "${violation_startDate}" into the "From" box.
+  
+  % if is_ongoing:
+  Mark the "Present" box. 
+  % else :
+  Type "${violation_endDate}" into the "To" box.
+  % endif  
+  
+  [BORDER]
+  ### Report or Complaint Detail
+  
+  % if reporter.is_3rdParty:
+  Pick "for someone else" from the "I need help" box.
+  % else :
+  Pick "for myself" from the "I need help" box.
+  % endif
+  
+  Type "${work_type}, ${job_title}" into the "Type of Work Performed and Job Title" box.
+  
+  Type "${pay_rate}" into the "Pay Rate" box."
+  
+  Pick "${pay_type}" from the "Per" box."
+  
+  % if claim.total > 0:
+  Type "${claim.total}" into the "Total Amount Owed" box. 
+  % endif
+  
+  Type a short description of what happened in the "Provide detailed information" box.
+  
+  [BORDER]
+  ### Has Someone Helped You?
+  
+  % if gottenHelp['group_help']:
+  Mark the "I contacted a community organization, lawyer, union, or government agency." box. 
+  % endif
+  
+  % if gottenHelp['has_council']:
+  Mark the "I hired a lawyer or attorney to represent me." box. 
+  % endif
+  
+  % if gottenHelp['other']:
+  Mark the "Other" box and type "${other_helpers}" into the text box that appears. 
+  % endif
+  
+  % if gottenHelp['none'] or gottenHelp.all_false():
+  Mark the "I have not asked for help before filing this complaint." box. 
+  % endif
+  
+  [BORDER]
+  ### Employee Contact Information
+  
+  % if anonReporter:
+  Leave this section empty.
+  % endif 
+  
+  % if not value('reporter.name.first') == '':
+  Type "${reporter.name.first}" into the "First Name" box.
+  % endif
+  
+  % if not value('reporter.name.last') == '':
+  Type "${reporter.name.last}" into the "Last Name" box.
+  % endif
+  
+  % if not value('reporter.address.address') == '':
+  Type "${reporter.address.address}" into the "Street Address" box.
+  % endif
+  
+  %if not value('reporter.address.city') == '':
+  Type "${reporter.address.city}" into the "City" box.
+  % endif
+  
+  %if not value('reporter.address.state') == '':
+  Pick "${reporter.address.state}" from the "State" box.
+  % endif
+  
+  %if not value('reporter.address.zip') == '':
+  Type "${reporter.address.zip}" into the "Zip Code" box.
+  % endif
+  
+  %if not value('reporter.phone') == '':
+  Type "${reporter.phone}" into the "Phone" box.
+  % endif
+  
+  %if not value('reporter.email') == '':
+  Type "${reporter.email}" into the "Email" box.
+  % endif
+  
+  %if not value('reporter.DoB') == '':
+  Type "${reporter.DoB}" into the "Date of Birth" box.
+  % endif
+  
+  %if not value('reporter.language') == '':
+  Type "${reporter.language}" into the "Preferred Language" box.
+  % endif
+  
+  %if reporter.is_military:
+  Mark the "I am a U.S. Military Service Member or Veteran, or filing on behalf..." box.
+  % endif
+ 
+  
+  
 attachment:
   - name: MA Wage Theft Claim Summary
     filename: wage_theft_summary
