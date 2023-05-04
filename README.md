@@ -1,8 +1,8 @@
 # docassemble.WageTheftApp
 
-A docassemble extension.
+A Wage Theft Claim Interview
 
 ## Author
-
+David Runkle
 drunkle@suffolk.edu
 

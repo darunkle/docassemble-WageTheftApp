@@ -9,7 +9,7 @@ metadata:
   authors:
     - name: Dave Runkle
     - organization: Suffolk Law
-  revision_date: 2023-04-25
+  revision_date: 2023-05-03
 ---
 objects:
   - reporter: Individual
@@ -20,8 +20,10 @@ objects:
 id: interview order
 mandatory: True
 code: |
+  start
   if reporter.is_3rdParty:
     pronouns.personal = "they"
+    pronouns.personalCap = "They"
     pronouns.reflexive = "them"
     pronouns.toBe = "were"
     pronouns.possessive = "their"
@@ -30,6 +32,7 @@ code: |
     pronouns.Thrdposs = "their"
   else:
     pronouns.personal = "I"
+    pronouns.personalCap = "I"
     pronouns.reflexive = "me"
     pronouns.toBe = "was"
     pronouns.possessive = "my"
@@ -45,19 +48,40 @@ code: |
     reporter.name.first
     reporter.address.city
     reporter.phone
+    reporter.DoB
+  claim.is_private_action
   employer_name
   reporter.is_military
   reporter.employment
   if not reporter.employment == 'never':
     reporter.start_Date
-  else:
-    claim.is_private_action = False
   claim.reasons
   violation_startDate
-  if claim.is_private_action:
-    if gottenHelp['has_council'] == False:
-      show_referral_links
   show_form_helper
+---
+id: intro
+continue button field: start
+question: |
+  Welcome to the Massachusetts Wage Theft Claim Helper!
+subquestion: |
+  This interview will help you complete Massachusetts Attorney General's [workplace complaint form](https://www.mass.gov/how-to/file-a-workplace-complaint).
+  
+  Before you begin, please consider the following points:
+  
+  1. Not all complaints lead to an investigation.
+  2. If you do not request a **private right of action**, Massachusetts will investigate this claim as soon as it can, but it may take several weeks to decide if it will do so.
+  3. If you request a **private right of action**, Massachusetts **will not** investigate this claim.
+  4. If Massachusetts does investigate a claim, it may do any of the following:
+  
+  * send a warning to the employer
+  * require your employer to pay unpaid wages and a penalty
+  * file criminal charges against your employer
+  * give you a **private right of action** that allows you to sue your employer for your unpaid wages 
+  * take some other action to resolve any violations they find
+
+  
+  
+  Press continue when you are ready to get started.
 ---
 id: violation time period
 question: |
@@ -88,6 +112,11 @@ fields:
       - "...takes some or all of ${pronouns.possessive} tips": tips
       - "...hasn't paid ${pronouns.reflexive} for a sale ${pronouns.personal} made": commission
       - "...takes money from ${pronouns.possessive} paycheck": deductions
+    minlength: 1
+    validation messages:
+      checkbox minlength: |
+        You must pick at least one complaint reason.
+    none of the above: False
 ---
 id: reporter type
 question: |
@@ -100,7 +129,14 @@ buttons:
 id: claim type
 question: |
   Would ${pronouns.address} like to pursue this claim personally?
-yesno: claim.is_private_action
+field: claim.is_private_action
+buttons:
+  - "Yes, I want to request a **private right of action**": True
+    help: |
+      ${pronouns.address} will need a lawyer for this option.
+  - "No, I want Massachusetts to investigate it": False
+under: |
+  Note: Choosing "No" does not prevent a **private right of action** later. 
 ---
 id: reporter DoB
 question: |
@@ -132,6 +168,8 @@ field: anonReporter
 buttons:
   - "No": False
   - "Yes": True
+under: |
+  Note: Anonymous reports cannot get a **private right of action**.
 ---
 id: resident
 question: |
@@ -161,29 +199,23 @@ fields:
     required: False
   - Last: reporter.name.last
 ---
+
+---
 id: employment status
 question: |
-  % if reporter.is_3rdParty:
-  Which best describes the employees's work:
-  % else:
-  Which best describes your work:
-  % endif
+  Which best describes ${pronouns.Thrdposs} work at ${employer_name}:
 fields:
   - no label: reporter.employment
-    choices:
-      - "They used to work for ${employer_name}, but stopped.": ended
-      - "They still work for ${employer_name}.": current
-    show if:
-      code: |
-          reporter.is_3rdParty
-  - no label: reporter.employment
-    choices:
-      - "I used to work for ${employer_name}, but stopped.": ended
-      - "I still work for ${employer_name}.": current
-      - "I've never worked for ${employer_name}.": never
-    show if:
-      code: |
-          not reporter.is_3rdParty
+    datatype: radio
+    code: |
+      myoptions
+---
+code: |
+  myoptions = [
+                {'ended': value('pronouns.personalCap')+" used to work for "+value('employer_name')+", but stopped."},
+                {'current': value('pronouns.personalCap')+" still work for "+value('employer_name')+"."},
+                {'never': value('pronouns.personalCap')+" never worked for "+value('employer_name')+".", 'show if': not claim.is_private_action}
+              ]
 ---
 id: employment details
 question: |
@@ -235,7 +267,8 @@ fields:
         - "${pronouns.personal} hired a lawyer.": has_council
         - "${pronouns.personal} got help from a group like a community organization, a union, or the government.": group_help
         - "Someone else helped ${pronouns.reflexive}.": other
-        - "No one else has helped ${pronouns.reflexive} with this.": none
+      none of the above: |
+        "No one else has helped ${pronouns.reflexive} with this."
     - "Please provide the names of the people or groups who have helped ${pronouns.address}.": other_helpers
       show if: gottenHelp['other']
  
@@ -315,80 +348,106 @@ fields:
     required: False
 ---
 id: form helper
-question: Here is ${pronouns.Thrdposs} Form Helper!
+question: Here is ${pronouns.Thrdposs} customized help!
 subquestion: |
-  Based on your answers, here is how to complete Massachusetts's workplace complaint form:
+  % if claim.is_private_action and gottenHelp['has_council'] == False:
+  You should **find a lawyer** to help you with your private right of action claim.
   
+  You may use the following resources to find a lawyer:
+  [resouce links would go here]
+  
+  Bring the following information with you when meeting with a lawyer about this claim:
+  
+  %endif
+ 
+  ${ formHelper }
+  
+attachment:
+  - name: MA Wage Theft Form Helper
+    filename: wage_theft_formHelper
+    description: |
+      Here is your customized Form Helper.
+    content: |
+      ${ formHelper }
+event: show_form_helper
+---
+template: formHelper
+content: |
+  ###Here is your checklist to complete Massachusetts's workplace complaint form:
+ 
   [BORDER]
   ### About Your Request
-  Pick "Non-Payment of Wage"
   
+  ☐ Pick "Non-Payment of Wage"
+ 
   [BORDER]
   ### Reason for Filing Complaint
+  
   % if claim.reasons['minWage']:
-  Mark the "Minimum wage" box.
+  ☐ Mark the "Minimum wage" box.
   % endif
   
   % if claim.reasons['nonPay']:
-  Mark the "Non-payment of wages" box. 
+  ☐ Mark the "Non-payment of wages" box. 
   % endif
   
   % if claim.reasons['overTime']:
-  Mark the "Overtime pay" box. 
+  ☐ Mark the "Overtime pay" box. 
   % endif
   
   % if claim.reasons['holidayPay']:
-  Mark the "Sunday/holiday pay" box. 
+  ☐ Mark the "Sunday/holiday pay" box. 
   % endif
   
   % if claim.reasons['mealTime']:
-  Mark the "Meal period" box. 
+  ☐ Mark the "Meal period" box. 
   % endif
   
   % if claim.reasons['tips']:
-  Mark the "Tips" box. 
+  ☐ Mark the "Tips" box. 
   % endif
   
   % if claim.reasons['commission']:
-  Mark the "Unpaid commissions" box. 
+  ☐ Mark the "Unpaid commissions" box. 
   % endif
   
   % if claim.reasons['deductions']:
-  Mark the "Deductions" box. 
+  ☐ Mark the "Deductions" box. 
   % endif
   
   % if claim.is_private_action:
-  Mark the "I am requesting permission to sue privately **("private right of action")**" box. 
+  ☐ Mark the "I am requesting permission to sue privately **("private right of action")**" box. 
   % endif
   
   [BORDER]
   ### Complaint Against
-  Type "${employer_name}" into the "Company or Employer Name" box.
   
-  Pick "${employer_type}" from the "Company or Employer Type" box.
+  ☐ Type "${employer_name}" into the "Company or Employer Name" box.
   
-  Type "${claim.address.address}" into the "Company or Employer Street Address" box.
+  ☐ Pick "${employer_type}" from the "Company or Employer Type" box.
   
-  Type "${claim.address.city}" into the "City" box.
+  ☐ Type "${claim.address.address}" into the "Company or Employer Street Address" box.
   
-  Pick "${claim.address.state}" from the "State" box.
+  ☐ Type "${claim.address.city}" into the "City" box.
   
-  Type "${claim.address.zip}" into the "Zip Code" box.
+  ☐ Pick "${claim.address.state}" from the "State" box.
+  
+  ☐ Type "${claim.address.zip}" into the "Zip Code" box.
   
   % if not value('employer_phone') == '':
-  Type "${employer_phone}" into the "Company Phone" box.
+  ☐ Type "${employer_phone}" into the "Company Phone" box.
   % endif
   
   % if not value('employer_size') == '':
-  Type "${employer_size}" into the "Number of Employees" box. 
+  ☐ Type "${employer_size}" into the "Number of Employees" box. 
   % endif
   
   % if not value('supervisor_name') == '':
-  Type "${supervisor_name}" into the "Owner and/or Supervisor Name and Contact Information" box. 
+  ☐ Type "${supervisor_name}" into the "Owner and/or Supervisor Name and Contact Information" box. 
   % endif
   
   % if not value('supervisor_contact') == '':
-  Type "${supervisor_contact}" into the "Owner and/or Supervisor Name and Contact Information" box. 
+  ☐ Type "${supervisor_contact}" into the "Owner and/or Supervisor Name and Contact Information" box. 
   % endif
   
   [BORDER]
@@ -399,134 +458,128 @@ subquestion: |
   % endif
   
   % if defined('reporter.start_Date'):
-  Type "${reporter.start_Date}" into the "To" box. 
+  ☐ Type "${reporter.start_Date}" into the "To" box. 
   % endif
   
   % if defined('reporter.end_Date'):
-  Type "${reporter.end_Date}" into the "From" box. 
+  ☐ Type "${reporter.end_Date}" into the "From" box. 
   % endif
   
   % if reporter.employment == 'current':
-  Mark the "Present" box. 
-  % endif  
+  ☐ Mark the "Present" box. 
+  % endif
+  
+  % if reporter.employment == 'ended':
+    %if reporter.termination_Reason == 'quit':
+    ☐ Pick "I quit or resigned."
+    % else:
+    ☐ Pick "I was fired or laid off."
+    % endif
+  % endif
   
   [BORDER]
   ### Time Period of Violation
   
-  Type "${violation_startDate}" into the "From" box.
+  ☐ Type "${violation_startDate}" into the "From" box.
   
   % if is_ongoing:
-  Mark the "Present" box. 
-  % else :
-  Type "${violation_endDate}" into the "To" box.
+  ☐ Mark the "Present" box. 
+  % else:
+  ☐ Type "${violation_endDate}" into the "To" box.
   % endif  
   
   [BORDER]
   ### Report or Complaint Detail
   
   % if reporter.is_3rdParty:
-  Pick "for someone else" from the "I need help" box.
+  ☐ Pick "for someone else" from the "I need help" box.
   % else :
-  Pick "for myself" from the "I need help" box.
+  ☐ Pick "for myself" from the "I need help" box.
   % endif
   
-  Type "${work_type}, ${job_title}" into the "Type of Work Performed and Job Title" box.
+  ☐ Type "${work_type}, ${job_title}" into the "Type of Work Performed and Job Title" box.
   
-  Type "${pay_rate}" into the "Pay Rate" box."
+  ☐ Type "${pay_rate}" into the "Pay Rate" box."
   
-  Pick "${pay_type}" from the "Per" box."
+  ☐ Pick "${pay_type}" from the "Per" box."
   
   % if claim.total > 0:
-  Type "${claim.total}" into the "Total Amount Owed" box. 
+  ☐ Type "${claim.total}" into the "Total Amount Owed" box. 
   % endif
   
-  Type a short description of what happened in the "Provide detailed information" box.
+  ☐ Type a short description of what happened in the "Provide detailed information" box.
   
   [BORDER]
   ### Has Someone Helped You?
   
   % if gottenHelp['group_help']:
-  Mark the "I contacted a community organization, lawyer, union, or government agency." box. 
+  ☐ Mark the "I contacted a community organization, lawyer, union, or government agency." box. 
   % endif
   
   % if gottenHelp['has_council']:
-  Mark the "I hired a lawyer or attorney to represent me." box. 
+  ☐ Mark the "I hired a lawyer or attorney to represent me." box. 
   % endif
   
   % if gottenHelp['other']:
-  Mark the "Other" box and type "${other_helpers}" into the text box that appears. 
+  ☐ Mark the "Other" box and type "${other_helpers}" into the text box that appears. 
   % endif
   
-  % if gottenHelp['none'] or gottenHelp.all_false():
-  Mark the "I have not asked for help before filing this complaint." box. 
+  % if gottenHelp.all_false():
+  ☐ Mark the "I have not asked for help before filing this complaint." box. 
   % endif
   
   [BORDER]
   ### Employee Contact Information
   
   % if anonReporter:
-  Leave this section empty.
+  ☐ Leave this section empty.
   % endif 
   
   % if not value('reporter.name.first') == '':
-  Type "${reporter.name.first}" into the "First Name" box.
+  ☐ Type "${reporter.name.first}" into the "First Name" box.
   % endif
   
   % if not value('reporter.name.last') == '':
-  Type "${reporter.name.last}" into the "Last Name" box.
+  ☐ Type "${reporter.name.last}" into the "Last Name" box.
   % endif
   
   % if not value('reporter.address.address') == '':
-  Type "${reporter.address.address}" into the "Street Address" box.
+  ☐ Type "${reporter.address.address}" into the "Street Address" box.
   % endif
   
   %if not value('reporter.address.city') == '':
-  Type "${reporter.address.city}" into the "City" box.
+  ☐ Type "${reporter.address.city}" into the "City" box.
   % endif
   
   %if not value('reporter.address.state') == '':
-  Pick "${reporter.address.state}" from the "State" box.
+  ☐ Pick "${reporter.address.state}" from the "State" box.
   % endif
   
   %if not value('reporter.address.zip') == '':
-  Type "${reporter.address.zip}" into the "Zip Code" box.
+  ☐ Type "${reporter.address.zip}" into the "Zip Code" box.
   % endif
   
   %if not value('reporter.phone') == '':
-  Type "${reporter.phone}" into the "Phone" box.
+  ☐ Type "${reporter.phone}" into the "Phone" box.
   % endif
   
   %if not value('reporter.email') == '':
-  Type "${reporter.email}" into the "Email" box.
+  ☐ Type "${reporter.email}" into the "Email" box.
   % endif
   
   %if not value('reporter.DoB') == '':
-  Type "${reporter.DoB}" into the "Date of Birth" box.
+  ☐ Type "${reporter.DoB}" into the "Date of Birth" box.
   % endif
   
   %if not value('reporter.language') == '':
-  Type "${reporter.language}" into the "Preferred Language" box.
+  ☐ Type "${reporter.language}" into the "Preferred Language" box.
   % endif
   
   %if reporter.is_military:
-  Mark the "I am a U.S. Military Service Member or Veteran, or filing on behalf..." box.
+  ☐ Mark the "I am a U.S. Military Service Member or Veteran, or filing on behalf..." box.
   % endif
- 
   
-  
-attachment:
-  - name: MA Wage Theft Claim Summary
-    filename: wage_theft_summary
-    description: |
-      This is a summary of your wage theft interview.
-    content: |
-      <p>You were robbed by ${employer_name}!<p>
-      <p>For ${claim.total}<p>
-event: show_form_helper
----
-id: referral
-question: Find an attorney here.
-event: show_referral_links
+  ☐ Sign and date the form.
 ---
 id: SoL Bounce
 question: Sorry, your claim is too old!
